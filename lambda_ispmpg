@@ -76,7 +76,7 @@ def diagonal_polynomial_matrix_with_roots(Lambda,k,n):
 ############################################################################
 # This solves the Lambda-ISPMPG
 ############################################################################
-def lambda_qiep(G,L,A0=None,iter=2,epsilon = .01):
+def lambda_qiep(G,L,A0=None,iter=2,epsilon = .01,verbose=False):
                         # solve degree k polynomial siep
                         # G is a list of k graphs on n vertices (not including the leading coefficient)
                         # G[0] is the graph of the constant term, G[1] is the graph of the linear term etc.
@@ -91,10 +91,14 @@ def lambda_qiep(G,L,A0=None,iter=2,epsilon = .01):
     n = G[0].order() #the size of the matrices
     if A0 == None:
         A0 = identity_matrix(n)
+    if verbose == True:
+        print('Creating variables ...')
     my_variables = [ build_variables(n,'x'+str(i)) for i in range(k) ] #variables x_i go into matrix X_i
     R = PolynomialRing(CC,[ my_variables[s][count] for s in range(k) for count in range(n^2) ])
     X = [0 for s in range(k)] #preallocating X
     count = 0
+    if verbose == True:
+        print('Putting the variables in the matrix ...')
     for s in range(k): #now fill it with matrices of variables
         tempX = [ [0 for i in range(n)] for j in range(n) ] #preallocate each one
         for i in range(n):
@@ -104,13 +108,18 @@ def lambda_qiep(G,L,A0=None,iter=2,epsilon = .01):
                 tempX[j][i] = x
                 count += 1
         X[s] = matrix(R,tempX)
+    if verbose == True:
+        print('Linearizing the matrix polynomial ...')
     LX = linearize_matrix_polynomial(X)
+    if verbose == True:
+        print('Creating the function f for the implicit function theorem ...')
     Y = matrix(CharPoly(LX)) - matrix(CharPoly(diagonal_matrix(L)))
     important_variables = [my_variables[i][j*(n+1)] for i in range(k) for j in range(n)]
     J = matrix(R,n*k)
+    if verbose == True:
+        print('Calculating the Jacobian ...')
     for i in range(n*k):
         for j in range(n*k):
-            #print(i,important_variables[j])
             J[i,j] = derivative(Y[0][i],important_variables[j])
     diagonalB = diagonal_polynomial_matrix_with_roots(Lambda,k,n)
     B = [diagonalB[i] + epsilon * G[i].adjacency_matrix() for i in range(k)]
@@ -122,6 +131,10 @@ def lambda_qiep(G,L,A0=None,iter=2,epsilon = .01):
         adjustment_term = [diagonal_matrix([ListC[i*n+j][0] for j in range(n)]) for i in range(k)]
         B = [ B[i] - adjustment_term[i]  for i in range(k)]
         count += 1
+        if verbose == True:
+            print("\r Newton's method iteration: %d/%d" %(count,iter))
+    if verbose == True:
+            print('Done.')
     return(B)
      
 ##########################################################################
@@ -172,7 +185,16 @@ def check_output_lambda_ispmpg(A,precision=10,latex=True,verbose=True):
         print(e.n(digits=precision))
 
 ##########################################################################
-# Example 1
+# Example 0: This one does not converge
+##########################################################################
+n = 4
+G = [graphs.PathGraph(n), graphs.PathGraph(n)]
+Lambda = [-12, -14, -16, -18, -20, -22, -24, -26] 
+B = lambda_qiep(G,Lambda,iter=10,epsilon = 1,verbose=True)
+check_output_lambda_ispmpg(B,precision=5,latex=False,verbose=True)
+
+##########################################################################
+# Example 1: This one converges
 ##########################################################################
 n = 4
 G = [graphs.PathGraph(n), graphs.PathGraph(n)]
@@ -181,7 +203,7 @@ B = lambda_qiep(G,Lambda,iter=100,epsilon = 0.5)
 check_output_lambda_ispmpg(B,precision=5,latex=False,verbose=True)
 
 ##########################################################################
-# Example 2
+# Example 2: This one converges
 ##########################################################################
 g = Graph({0:[1,2], 1:[2], 2:[3]}) #constant term
 h = Graph({0:[2], 1:[], 2:[3]}) #linear term
